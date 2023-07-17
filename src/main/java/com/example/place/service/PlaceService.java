@@ -1,5 +1,7 @@
 package com.example.place.service;
 
+import com.example.place.jpa.entity.Keyword;
+import com.example.place.jpa.repository.KeywordRepository;
 import com.example.place.mapper.DtoMapper;
 import com.example.place.model.CommonDto;
 import com.example.place.model.KakaoPlaceDto;
@@ -7,6 +9,7 @@ import com.example.place.model.NaverPlaceDto;
 import com.example.place.placeInterface.PlaceSearchService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,13 +21,15 @@ public class PlaceService {
     private final PlaceSearchService kakaoPlaceSearchService;
     private final PlaceSearchService naverPlaceSearchService;
     private final DtoMapper dtoMapper;
+    private final KeywordRepository keywordRepository;
 
     public PlaceService(@Qualifier("kakao") PlaceSearchService kakaoPlaceSearchService,
                         @Qualifier("naver") PlaceSearchService naverPlaceSearchService,
-                        DtoMapper dtoMapper) {
+                        DtoMapper dtoMapper, KeywordRepository keywordRepository) {
         this.kakaoPlaceSearchService = kakaoPlaceSearchService;
         this.naverPlaceSearchService = naverPlaceSearchService;
         this.dtoMapper = dtoMapper;
+        this.keywordRepository = keywordRepository;
     }
 
     public List<CommonDto> searchPlace(String query) {
@@ -50,19 +55,17 @@ public class PlaceService {
         // 1. 카카오와 네이버 검색결과 모두 중복인 부분 추가
         // 2. 나머지 중복되지 않은 카카오 검색
         // 3. 네이버 검색결과 converting 해서 리턴
+        // 4. 검색키워드를 db에 저장
         result.addAll(duplication);
         result.addAll(kakaoCommonList);
         result.addAll(newNaverCommonList);
+        processKeyword(query);
 
         return result;
     }
 
     private boolean isPlacePolicy(CommonDto kakao, CommonDto naver) {
         String overlapTitle = getOverlappingTitle(kakao.getTitle(), naver.getTitle());
-        // "SK플래닛 판교사옥" 과 "SK플래닛" 비교
-        if(kakao.getTitle().equals("SK플래닛 판교사옥") && naver.getTitle().equals("SK플래닛")) {
-            System.out.println();
-        }
         if(isSimilar(overlapTitle, kakao.getTitle()) &&
                 isSimilar(overlapTitle, naver.getTitle()) &&
                 (kakao.getRoadAddress().contains(naver.getRoadAddress()) || naver.getRoadAddress().contains(kakao.getRoadAddress()))) {
@@ -111,5 +114,26 @@ public class PlaceService {
         }
 
         return commonLength >= minSimilarity;
+    }
+
+    public List<Keyword> getKeyword() {
+        return keywordRepository.findTop10ByOrderByValueColumnDesc();
+    }
+
+    @Transactional
+    public void processKeyword(String keyColumn) {
+        Keyword keyword = keywordRepository.findByKeyColumn(keyColumn);
+        if (keyword == null) {
+            // key_column에 해당하는 키워드가 없으면 새로운 엔티티 생성
+            keyword = new Keyword();
+            keyword.setKeyColumn(keyColumn);
+            keyword.setValueColumn(1);
+            keywordRepository.save(keyword);
+        } else {
+            // 이미 해당 key_column에 대한 키워드가 존재하면 value_column 값만 1 증가시켜 업데이트
+            int currentValue = keyword.getValueColumn();
+            keyword.setValueColumn(currentValue + 1);
+            keywordRepository.save(keyword);
+        }
     }
 }
