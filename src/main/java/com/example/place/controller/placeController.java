@@ -26,9 +26,4 @@ public class placeController {
     public List<CommonDto> getPlace(@PathParam("query") String query) {
         return placeService.searchPlace(query);
     }
-
-    @GetMapping("/v1/keyword")
-    public Object getKeyword() {
-        return placeService.getKeyword("mykey");
-    }
 }

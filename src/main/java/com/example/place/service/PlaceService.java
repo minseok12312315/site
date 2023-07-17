@@ -5,8 +5,6 @@ import com.example.place.model.CommonDto;
 import com.example.place.model.KakaoPlaceDto;
 import com.example.place.model.NaverPlaceDto;
 import com.example.place.placeInterface.PlaceSearchService;
-import com.example.place.utils.ConvertUtil;
-import com.example.place.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -21,16 +19,12 @@ public class PlaceService {
     private final PlaceSearchService naverPlaceSearchService;
     private final DtoMapper dtoMapper;
 
-    private final RedisUtil redisUtil;
-
     public PlaceService(@Qualifier("kakao") PlaceSearchService kakaoPlaceSearchService,
                         @Qualifier("naver") PlaceSearchService naverPlaceSearchService,
-                        DtoMapper dtoMapper,
-                        RedisUtil redisUtil) {
+                        DtoMapper dtoMapper) {
         this.kakaoPlaceSearchService = kakaoPlaceSearchService;
         this.naverPlaceSearchService = naverPlaceSearchService;
         this.dtoMapper = dtoMapper;
-        this.redisUtil = redisUtil;
     }
 
     public List<CommonDto> searchPlace(String query) {
@@ -64,8 +58,11 @@ public class PlaceService {
     }
 
     private boolean isPlacePolicy(CommonDto kakao, CommonDto naver) {
-        //별미곱창 본점 & 별미곱창 은 주소까지 같으면 같은걸로
-        String overlapTitle = extractOverlappingPart(kakao.getTitle(), naver.getTitle());
+        String overlapTitle = getOverlappingTitle(kakao.getTitle(), naver.getTitle());
+        // "SK플래닛 판교사옥" 과 "SK플래닛" 비교
+        if(kakao.getTitle().equals("SK플래닛 판교사옥") && naver.getTitle().equals("SK플래닛")) {
+            System.out.println();
+        }
         if(isSimilar(overlapTitle, kakao.getTitle()) &&
                 isSimilar(overlapTitle, naver.getTitle()) &&
                 (kakao.getRoadAddress().contains(naver.getRoadAddress()) || naver.getRoadAddress().contains(kakao.getRoadAddress()))) {
@@ -85,12 +82,10 @@ public class PlaceService {
         }
     }
 
-    private String extractOverlappingPart(String str1, String str2) {
-        // 두 문자열 중 길이가 더 작은 문자열을 찾아서 baseString에 저장
+    private String getOverlappingTitle(String str1, String str2) {
         String baseString = (str1.length() <= str2.length()) ? str1 : str2;
         String targetString = (str1.length() <= str2.length()) ? str2 : str1;
 
-        // 겹치는 부분을 저장할 StringBuilder 생성
         StringBuilder overlappingPart = new StringBuilder();
 
         // baseString을 기준으로 하나씩 문자를 추출하여 targetString에 포함되는지 확인
@@ -115,23 +110,6 @@ public class PlaceService {
             }
         }
 
-        return commonLength > minSimilarity;
-    }
-
-    private int getOverlappingCount(String str1, String str2) {
-        int minLength = Math.min(str1.length(), str2.length());
-        int overlappingCount = 0;
-
-        for (int i = 0; i < minLength; i++) {
-            if (str1.charAt(i) == str2.charAt(i)) {
-                overlappingCount++;
-            }
-        }
-
-        return overlappingCount;
-    }
-
-    public String getKeyword(String key) {
-        return redisUtil.getData(key);
+        return commonLength >= minSimilarity;
     }
 }
