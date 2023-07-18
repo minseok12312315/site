@@ -22,6 +22,7 @@ for kb
 - ORM(jpa) 을 활용한 생산성 향상, 유지보수 용이, 가독성
 - Dto와 Entity를 분리하여 유지보수 용이
 - Mapper Class를 활용
+- 개발환경에 따른 properties 추가(비 설정시 application.properties 설정대로 동작)
 
 
 ### *참고 : Postman을 통한 테스트 시 아래 코드를 import하면 편하게 테스트가 가능합니다.
